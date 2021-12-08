@@ -15,6 +15,15 @@
 <maven.compiler.source>8</maven.compiler.source>
 <maven.compiler.target>8</maven.compiler.target>
 </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>ru.sda</groupId>
+            <artifactId>lib</artifactId>
+            <version>1.0-SNAPSHOT</version>
+        </dependency>
+    </dependencies>
+
 <build>
 <plugins>
 <plugin>
@@ -35,11 +44,5 @@
 </build>
 
 
-<dependencies>
-<dependency>
-    <groupId>ru.sda</groupId>
-    <artifactId>lib</artifactId>
-    <version>1.0-SNAPSHOT</version>
-</dependency>
-</dependencies>
+
 </project>

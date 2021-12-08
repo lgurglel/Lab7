@@ -5,12 +5,12 @@ import exceptions.CommandUsageException;
 import exceptions.IncorrectInputInScriptException;
 import exceptions.ScriptRecursionException;
 import tasck.Coordinates;
-import tasck.Ticket;
 import tasck.TicketType;
 import tasck.Venue;
 import utils.Request;
 import utils.ResponseCode;
-import utils.Tickets;
+import tasck.Tickets;
+import utils.User;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -22,13 +22,15 @@ public class UserHandler {
     private Scanner scanner;
     private Stack<File> scriptFileNames = new Stack<>();
     private Stack<Scanner> scannerStack = new Stack<>();
+    private AuthManager authManager;
 
-    public UserHandler(Scanner scanner) {
+    public UserHandler(Scanner scanner, AuthManager authManager) {
         this.scanner = scanner;
+        this.authManager = authManager;
     }
 
-    public Request interactiveMode(ResponseCode serverResponseCode) {
-        String userInput;
+    public Request interactiveMode(ResponseCode serverResponseCode, User user) {
+        String userInput = "";
         String[] userCommand = {"", ""};
         ProcessingCode processCode = null;
         try {
@@ -40,20 +42,25 @@ public class UserHandler {
                     while (fileMode() && !scanner.hasNextLine()) {
                         scanner.close();
                         scanner = scannerStack.pop();
-                        Outputer.println("Возвращаюсь из скрипта '" + scriptFileNames.pop().getName() + "'!");
+                        System.out.println("Возвращаюсь из скрипта '" + scriptFileNames.pop().getName() + "'!");
                     }
                     if (fileMode()) {
                         userInput = scanner.nextLine();
                         if (!userInput.isEmpty()) {
-                            Outputer.println(userInput);
+                            System.out.println(userInput);
                         }
                     } else {
-                        userInput = scanner.nextLine();
+                        if (scanner.hasNext()) {
+                            userInput = scanner.nextLine();
+                        } else {
+                            System.out.println("Клиент завершен!");
+                            System.exit(0);
+                        }
                     }
                     userCommand = (userInput.trim() + " ").split(" ", 2);
                     userCommand[1] = userCommand[1].trim();
                 } catch (NoSuchElementException | IllegalStateException exception) {
-                    Outputer.println("Произошла ошибка при вводе команды!");
+                    System.out.println("Произошла ошибка при вводе команды!");
                     userCommand = new String[]{"", ""};
                 }
                 processCode = processCommand(userCommand[0], userCommand[1]);
@@ -61,11 +68,11 @@ public class UserHandler {
             try {
                 switch (processCode) {
                     case OBJECT:
-                        Ticket ticketsAdder = generateTicketAdd();
-                        return new Request(userCommand[0], userCommand[1], ticketsAdder);
+                        Tickets ticketsToInsert = generateTicketAdd();
+                        return new Request(userCommand[0], userCommand[1], ticketsToInsert, user);
                     case UPDATE_OBJECT:
-                        Tickets ticketsUpdate = generateTicketsUpdate();
-                        return new Request(userCommand[0], userCommand[1], ticketsUpdate);
+                        Tickets ticketsToUpdate = generateTicketsUpdate();
+                        return new Request(userCommand[0], userCommand[1], ticketsToUpdate, user);
                     case SCRIPT:
                         File scriptFile = new File(userCommand[1]);
                         if (!scriptFile.exists()) throw new FileNotFoundException();
@@ -75,26 +82,26 @@ public class UserHandler {
                         scannerStack.push(scanner);
                         scriptFileNames.push(scriptFile);
                         scanner = new Scanner(scriptFile);
-                        Outputer.println("Выполняю скрипт '" + scriptFile.getName() + "'!");
+                        System.out.println("Выполняю скрипт '" + scriptFile.getName() + "'!");
                         break;
+                    case LOG_IN:
+                        return authManager.handle();
                 }
             } catch (FileNotFoundException exception) {
-                Outputer.printerror("Файл со скриптом не найден!");
+                System.out.println("Файл со скриптом не найден!");
             } catch (ScriptRecursionException exception) {
-                Outputer.printerror("Скрипты не могут вызываться рекурсивно!");
+                System.out.println("Скрипты не могут вызываться рекурсивно!");
                 throw new IncorrectInputInScriptException();
             }
         } catch (IncorrectInputInScriptException exception) {
-            Outputer.printerror("Выполнение скрипта прервано!");
+            System.out.println("Выполнение скрипта прервано!");
             while (!scannerStack.isEmpty()) {
                 scanner.close();
                 scanner = scannerStack.pop();
             }
         }
-        return new Request(userCommand[0], userCommand[1]);
+        return new Request(userCommand[0], userCommand[1], null, user);
     }
-
-
     /**
      * Launches the command.
      *
@@ -106,6 +113,12 @@ public class UserHandler {
             switch (command) {
                 case "":
                     return ProcessingCode.ERROR;
+                case "log_out":
+                    if (!commandArgument.isEmpty()) throw new CommandUsageException();
+                    break;
+                case "log_in":
+                    if (!commandArgument.isEmpty()) throw new CommandUsageException();
+                    return ProcessingCode.LOG_IN;
                 case "help":
                     if (!commandArgument.isEmpty()) throw new CommandUsageException();
                     break;
@@ -164,13 +177,11 @@ public class UserHandler {
         return ProcessingCode.OK;
     }
 
-    private Ticket generateTicketAdd() {
+    private Tickets generateTicketAdd() {
         TicketAdder ticketAdder = new TicketAdder(scanner);
         if (fileMode()) ticketAdder.setFileMode();
-        return new Ticket(0l,
-                ticketAdder.createNewName(),
+        return new Tickets(ticketAdder.createNewName(),
                 ticketAdder.createNewCoordinates(),
-                null,
                 ticketAdder.createNewPrice(),
                 ticketAdder.createNewDiscount(),
                 ticketAdder.createNewComment(),

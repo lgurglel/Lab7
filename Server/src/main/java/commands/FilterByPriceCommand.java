@@ -1,9 +1,11 @@
 package commands;
 
 import exceptions.EmptyCollectionException;
+import exceptions.NonAuthorizedUserException;
 import exceptions.WrongAmountOfParametersException;
 import managers.CollectionManager;
 import managers.ResponseOutputer;
+import utils.User;
 
 public class FilterByPriceCommand extends AbstractCommand {
     private CollectionManager collectionManager;
@@ -14,8 +16,9 @@ public class FilterByPriceCommand extends AbstractCommand {
     }
 
     @Override
-    public boolean execute(String parameter,Object objectArgument) {
+    public boolean execute(String parameter,Object objectArgument, User user) {
         try {
+            if (user == null) throw new NonAuthorizedUserException();
             if (parameter.isEmpty() || objectArgument != null) throw new WrongAmountOfParametersException();
             if (collectionManager.collectionSize() == 0) throw new EmptyCollectionException();
             Float price = Float.valueOf(parameter);
@@ -27,8 +30,8 @@ public class FilterByPriceCommand extends AbstractCommand {
             ResponseOutputer.appendError("Использование: '" + getName() + " " + getDescription() + "'");
         } catch (EmptyCollectionException exception) {
             ResponseOutputer.appendError("Коллекция пуста!");
-        } catch (Exception e) {
-            ResponseOutputer.appendError("Неверно введен параметр!");
+        } catch (NonAuthorizedUserException e) {
+            ResponseOutputer.append("Необходимо авторизоваться!\n");
         }
         return false;
     }

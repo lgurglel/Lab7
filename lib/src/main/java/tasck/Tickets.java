@@ -1,8 +1,7 @@
-package utils;
-
-import tasck.*;
+package tasck;
 
 import java.io.Serializable;
+import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 
@@ -13,7 +12,7 @@ public class Tickets implements Serializable {
     private long id;
     private String name;
     private Coordinates coordinates;
-    private ZonedDateTime creationDate;
+    private LocalDateTime creationDate;
     private Float price;
     private Long discount;
     private String comment;
@@ -54,11 +53,11 @@ public class Tickets implements Serializable {
         this.coordinates = coordinates;
     }
 
-    public ZonedDateTime getCreationDate() {
+    public LocalDateTime getCreationDate() {
         return creationDate;
     }
 
-    public void setCreationDate(ZonedDateTime creationDate) {
+    public void setCreationDate(LocalDateTime creationDate) {
         this.creationDate = creationDate;
     }
 

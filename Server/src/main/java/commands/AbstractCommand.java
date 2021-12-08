@@ -1,5 +1,9 @@
 package commands;
 
+import utils.User;
+
+import java.util.Objects;
+
 public abstract class AbstractCommand {
     private String name;
     private String description;
@@ -9,15 +13,41 @@ public abstract class AbstractCommand {
         this.description = description;
     }
 
-    protected AbstractCommand() {
-    }
+    public abstract boolean execute(String argument, Object objectArgument, User user);
 
-
-    public abstract boolean execute(String parameter, Object objectArgument);
+    /**
+     * @return Name and usage way of the command.
+     */
     public String getName() {
         return name;
     }
+
+    /**
+     * @return Description of the command.
+     */
     public String getDescription() {
         return description;
+    }
+
+    @Override
+    public String toString() {
+        return "AbstractCommand{" +
+                "name='" + name + '\'' +
+                ", description='" + description + '\'' +
+                '}';
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        AbstractCommand that = (AbstractCommand) o;
+        return Objects.equals(name, that.name) &&
+                Objects.equals(description, that.description);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(name, description);
     }
 }

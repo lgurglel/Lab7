@@ -1,28 +1,16 @@
 package managers;
 
 import commands.*;
-import consoleWork.ConsoleWorker;
-import consoleWork.Outputer;
-import consoleWork.Scanner;
-import consoleWork.ScriptScanner;
+import utils.User;
 
-import java.io.File;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class CommandManager {
-    private ConsoleWorker consoleWorker;
-    private CollectionManager collectionManager;
-    private FileManager fileManager;
-    private List<String> scriptsFiles = new ArrayList();
+    private ReadWriteLock collectionLocker = new ReentrantReadWriteLock();
 
-    public CommandManager(ConsoleWorker consoleWorker, CollectionManager collectionManager, FileManager fileManager) {
-        this.consoleWorker = consoleWorker;
-        this.collectionManager = collectionManager;
-        this.fileManager = fileManager;
-    }
     private List<AbstractCommand> commands = new ArrayList<>();
     private AbstractCommand helpCommand;
     private AbstractCommand infoCommand;
@@ -38,8 +26,10 @@ public class CommandManager {
     private AbstractCommand removeAllByPriceCommand;
     private AbstractCommand filterByPriceCommand;
     private AbstractCommand sortCommand;
-    private AbstractCommand saveCommand;
     private AbstractCommand sumOfDiscountCommand;
+    private AbstractCommand signUpCommand;
+    private AbstractCommand signInCommand;
+    private AbstractCommand logOutCommand;
 
     public CommandManager(AbstractCommand helpCommand,
                           AbstractCommand infoCommand,
@@ -54,9 +44,11 @@ public class CommandManager {
                           AbstractCommand reorderCommand,
                           AbstractCommand removeAllByPriceCommand,
                           AbstractCommand filterByPriceCommand,
-                          AbstractCommand saveCommand,
                           AbstractCommand sumOfDiscountCommand,
-                          AbstractCommand sortCommand) {
+                          AbstractCommand sortCommand,
+                          AbstractCommand signUpCommand,
+                          AbstractCommand signInCommand,
+                          AbstractCommand logOutCommand) {
         this.helpCommand = helpCommand;
         commands.add(helpCommand);
         this.infoCommand = infoCommand;
@@ -83,16 +75,24 @@ public class CommandManager {
         commands.add(removeAllByPriceCommand);
         this.filterByPriceCommand = filterByPriceCommand;
         commands.add(filterByPriceCommand);
-        this.saveCommand = saveCommand;
-        commands.add(saveCommand);
         this.sumOfDiscountCommand = sumOfDiscountCommand;
         commands.add(sumOfDiscountCommand);
         this.sortCommand = sortCommand;
         commands.add(sortCommand);
+        this.signUpCommand = signUpCommand;
+        this.signInCommand = signInCommand;
+        commands.add(new AbstractCommand("log_in", "авторизоваться") {
+            @Override
+            public boolean execute(String argument, Object objectArgument, User user) {
+                return false;
+            }
+        });
+        this.logOutCommand = logOutCommand;
+        commands.add(logOutCommand);
     }
 
-    public boolean help(String argument, Object objectArgument) {
-        if (helpCommand.execute(argument, objectArgument)) {
+    public boolean help(String argument, Object objectArgument, User user) {
+        if (helpCommand.execute(argument, objectArgument, user)) {
             for (AbstractCommand command : commands) {
                 ResponseOutputer.appendTable(command.getName(), command.getDescription());
             }
@@ -100,152 +100,141 @@ public class CommandManager {
         } else return false;
     }
 
-    public boolean info(String argument, Object objectArgument) {
-        return infoCommand.execute(argument, objectArgument);
+    public boolean info(String argument, Object objectArgument, User user) {
+        collectionLocker.readLock().lock();
+        try {
+            return infoCommand.execute(argument, objectArgument, user);
+        } finally {
+            collectionLocker.readLock().unlock();
+        }
     }
 
-    public boolean show(String argument, Object objectArgument) {
-        return showCommand.execute(argument, objectArgument);
+    public boolean show(String argument, Object objectArgument, User user) {
+        collectionLocker.readLock().lock();
+        try {
+            return showCommand.execute(argument, objectArgument, user);
+        } finally {
+            collectionLocker.readLock().unlock();
+        }
     }
 
-    public boolean add(String argument, Object objectArgument) {
-        return addCommand.execute(argument, objectArgument);
+    public boolean add(String argument, Object objectArgument, User user) {
+        collectionLocker.writeLock().lock();
+        try {
+            return addCommand.execute(argument, objectArgument, user);
+        } finally {
+            collectionLocker.writeLock().unlock();
+        }
     }
 
-    public boolean update(String argument, Object objectArgument) {
-        return updateCommand.execute(argument, objectArgument);
+    public boolean update(String argument, Object objectArgument, User user) {
+        collectionLocker.writeLock().lock();
+        try {
+            return updateCommand.execute(argument, objectArgument, user);
+        } finally {
+            collectionLocker.writeLock().unlock();
+        }
     }
 
-    public boolean removeById(String argument, Object objectArgument) {
-        return removeByIdCommand.execute(argument, objectArgument);
+    public boolean removeById(String argument, Object objectArgument, User user) {
+        collectionLocker.writeLock().lock();
+        try {
+            return removeByIdCommand.execute(argument, objectArgument, user);
+        } finally {
+            collectionLocker.writeLock().unlock();
+        }
     }
 
-    public boolean save(String argument, Object objectArgument) {
-        return saveCommand.execute(argument, objectArgument);
+    public boolean clear(String argument, Object objectArgument, User user) {
+        collectionLocker.writeLock().lock();
+        try {
+            return clearCommand.execute(argument, objectArgument, user);
+        } finally {
+            collectionLocker.writeLock().unlock();
+        }
     }
 
-    public boolean clear(String argument, Object objectArgument) {
-        return clearCommand.execute(argument, objectArgument);
+    public boolean removeGreater(String argument, Object objectArgument, User user) {
+        collectionLocker.writeLock().lock();
+        try {
+            return removeGreaterCommand.execute(argument, objectArgument, user);
+        } finally {
+            collectionLocker.writeLock().unlock();
+        }
     }
 
-    public boolean removeGreater(String argument, Object objectArgument) {
-        return removeGreaterCommand.execute(argument, objectArgument);
+    public boolean removeAllByPrice(String argument, Object objectArgument, User user) {
+        collectionLocker.writeLock().lock();
+        try {
+            return removeAllByPriceCommand.execute(argument, objectArgument, user);
+        } finally {
+            collectionLocker.writeLock().unlock();
+        }
     }
 
-    public boolean removeAllByPrice(String argument, Object objectArgument) {
-        return removeAllByPriceCommand.execute(argument, objectArgument);
+    public boolean reorder(String argument, Object objectArgument, User user) {
+        collectionLocker.writeLock().lock();
+        try {
+            return reorderCommand.execute(argument, objectArgument, user);
+        } finally {
+            collectionLocker.writeLock().unlock();
+        }
     }
 
-    public boolean reorder(String argument, Object objectArgument) {
-        return reorderCommand.execute(argument, objectArgument);
+    public boolean sort(String argument, Object objectArgument, User user) {
+        collectionLocker.writeLock().lock();
+        try {
+            return sortCommand.execute(argument, objectArgument, user);
+        } finally {
+            collectionLocker.writeLock().unlock();
+        }
     }
 
-    public boolean sort(String argument, Object objectArgument) {
-        return sortCommand.execute(argument, objectArgument);
+    public boolean filterByPrice(String argument, Object objectArgument, User user) {
+        collectionLocker.writeLock().lock();
+        try {
+            return filterByPriceCommand.execute(argument, objectArgument, user);
+        } finally {
+            collectionLocker.writeLock().unlock();
+        }
     }
 
-    public boolean filterByPrice(String argument, Object objectArgument) {
-        return filterByPriceCommand.execute(argument, objectArgument);
+    public boolean sumOfDiscount(String argument, Object objectArgument, User user) {
+        collectionLocker.readLock().lock();
+        try {
+            return sumOfDiscountCommand.execute(argument, objectArgument, user);
+        }finally {
+            collectionLocker.readLock().unlock();
+        }
     }
 
-    public boolean sumOfDiscount(String argument, Object objectArgument) {
-        return sumOfDiscountCommand.execute(argument, objectArgument);
+    public boolean exit(String argument, Object objectArgument, User user) {
+        collectionLocker.readLock().lock();
+        try {
+        return exitCommand.execute(argument, objectArgument, user);
+        }finally {
+            collectionLocker.readLock().unlock();
+        }
     }
 
-    public boolean exit(String argument, Object objectArgument) {
-        return exitCommand.execute(argument, objectArgument);
+    public boolean executeScript(String argument, Object objectArgument, User user) {
+        collectionLocker.readLock().lock();
+        try {
+        return executeScriptCommand.execute(argument, objectArgument, user);
+        } finally {
+            collectionLocker.readLock().unlock();
+        }
     }
-    public boolean executeScript(String argument, Object objectArgument) {
-        return executeScriptCommand.execute(argument, objectArgument);
+
+    public boolean sign_up(String argument, Object objectArgument, User user) {
+        return signUpCommand.execute(argument, objectArgument, user);
     }
-//    public void checkRequest(String request, Scanner scanner) {
-//        if (request == null && request.equals("")) {
-//            Outputer.println("Строка не должна быть пустой!");
-//            return;
-//        }
-//        request = request.toLowerCase().trim();
-//
-//        String commandName = request.split(" ")[0];
-//
-//        // волидация проверка
-//        AbstractCommand command = null;
-//        if (commandName.equals(new AddCommand().toString())) {
-//            command = new AddCommand(collectionManager);
-//        } else if (commandName.equals(new ClearCommand().toString())) {
-//            command = new ClearCommand(collectionManager);
-//        } else if (commandName.equals(new ExecuteScriptCommand().toString())) {
-//            command = new ExecuteScriptCommand(collectionManager, getParameter(request, scanner), fileManager);
-//        } else if (commandName.equals(new ExitCommand().toString())) {
-//            command = new ExitCommand(collectionManager);
-//        } else if (commandName.equals(new HelpCommand().toString())) {
-//            command = new HelpCommand(collectionManager);
-//        } else if (commandName.equals(new InfoCommand().toString())) {
-//            command = new InfoCommand(collectionManager);
-//        } else if (commandName.equals(new RemoveByIdCommand().toString())) {
-//            command = new RemoveByIdCommand(collectionManager, getParameter(request, scanner));
-//        } else if (commandName.equals(new SaveCommand().toString())) {
-//            command = new SaveCommand(collectionManager);
-//        } else if (commandName.equals(new ShowCommand().toString())) {
-//            command = new ShowCommand(collectionManager);
-//        } else if (commandName.equals(new UpdateCommand().toString())) {
-//            command = new UpdateCommand(collectionManager, getParameter(request, scanner));
-//        } else if (commandName.equals(new SumOfDiscountCommand().toString())) {
-//            command = new SumOfDiscountCommand(collectionManager);
-//        } else if (commandName.equals(new RemoveGreaterCommand().toString())) {
-//            command = new RemoveGreaterCommand(collectionManager);
-//        } else if (commandName.equals(new FilterByPriceCommand().toString())) {
-//            command = new FilterByPriceCommand(collectionManager, getParameter(request, scanner));
-//        } else if (commandName.equals(new RemoveAllByPriceCommand().toString())) {
-//            command = new RemoveAllByPriceCommand(collectionManager, getParameter(request, scanner));
-//        } else if (commandName.equals(new ReorderCommand().toString())) {
-//            command = new ReorderCommand(collectionManager);
-//        } else if (commandName.equals(new SortCommand().toString())) {
-//            command = new SortCommand(collectionManager);
-//        }
-//        if (command == null) {
-//            Outputer.println("Неизвестная команда! Введите help, чтоб увидеть список команд.");
-//            return;
-//        } else {
-//            Response response = command.execute(scanner);
-//            if (command.toString().equals(new ExecuteScriptCommand().toString())) {
-//                if (response.getMessage().equals("false")) {
-//                    Outputer.println("Проблема с запуском скрипта");
-//                } else {
-//                    String filePath = new File(getParameter(request, scanner)).getAbsolutePath();
-//                    if (scriptsFiles.contains(filePath)) {
-//                        Outputer.println("\nРекурсия!");
-//                        scriptsFiles.clear();
-//                        return;
-//                    } else {
-//                        scriptsFiles.add(filePath);
-//                        executeScript(response.getMessage());
-//                        scriptsFiles.remove(filePath);
-//                    }
-//                }
-//            } else {
-//                Outputer.println(response.getMessage());
-//            }
-//        }
-//    }
 
-//    private void executeScript(String script) {
-//        Scanner scanner = new ScriptScanner(script);
-//        while (!scriptsFiles.isEmpty()) {
-//            String command = scanner.read();
-//            if (command == null) {
-//                break;
-//            }
-//            checkRequest(command, scanner);
-//        }
-//    }
-//
-//
-//    public String getParameter(String request, Scanner scanner) {
-//        try {
-//            return request.split(" ")[1];
-//        } catch (Exception e) {
-//            return "Неверно указан параметр";
-//        }
-//    }
+    public boolean sign_in(String argument, Object objectArgument, User user) {
+        return signInCommand.execute(argument, objectArgument, user);
+    }
 
+    public boolean log_out(String argument, Object objectArgument, User user) {
+        return logOutCommand.execute(argument, objectArgument, user);
+    }
 }

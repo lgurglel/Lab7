@@ -1,9 +1,11 @@
 package commands;
 
 import exceptions.EmptyCollectionException;
+import exceptions.NonAuthorizedUserException;
 import exceptions.WrongAmountOfParametersException;
 import managers.CollectionManager;
 import managers.ResponseOutputer;
+import utils.User;
 
 public class SumOfDiscountCommand extends AbstractCommand {
     private CollectionManager collectionManager;
@@ -13,22 +15,22 @@ public class SumOfDiscountCommand extends AbstractCommand {
         this.collectionManager = collectionManager;
     }
 
-    public SumOfDiscountCommand() {
-
-    }
 
     @Override
-    public boolean execute(String parameter, Object objectArgument) {
+    public boolean execute(String parameter, Object objectArgument, User user) {
         try {
+            if (user == null) throw new NonAuthorizedUserException();
             if (!parameter.isEmpty() || objectArgument != null) throw new WrongAmountOfParametersException();
-            float sum_of_price = collectionManager.getSumOfPrice();
-            if (sum_of_price == 0) throw new EmptyCollectionException();
-            ResponseOutputer.append("Сумма цен всех билетов: " + sum_of_price);
+            double sum_of_health = collectionManager.getSumOfPrice();
+            if (sum_of_health == 0) throw new EmptyCollectionException();
+            ResponseOutputer.append("Сумма цен всех билетов: " + sum_of_health + "\n");
             return true;
         } catch (WrongAmountOfParametersException exception) {
-            ResponseOutputer.append("Использование: '" + getName() + " " + getDescription() + "'");
+            ResponseOutputer.append("У этой команды нет параметров!\n");
         } catch (EmptyCollectionException exception) {
-            ResponseOutputer.appendError("Коллекция пуста!");
+            ResponseOutputer.append("Коллекция пуста!\n");
+        } catch (NonAuthorizedUserException e) {
+            ResponseOutputer.append("Необходимо авторизоваться!\n");
         }
         return false;
     }

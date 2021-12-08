@@ -1,33 +1,33 @@
 import commands.*;
-import managers.FileManager;
-import managers.CollectionManager;
-import managers.CommandManager;
-import managers.RequestManager;;
+import managers.*;
 
 public class Main {
     public static final int PORT = 3274;
-    public static final String ENV_VARIABLE = "envVariable";
 
     public static void main(String[] args) {
-        FileManager fileManager = new FileManager(ENV_VARIABLE);
-        CollectionManager collectionManager = new CollectionManager(fileManager);
+        DatabaseManager databaseManager = new DatabaseManager();
+        DatabaseUserManager databaseUserManager = new DatabaseUserManager(databaseManager);
+        DatabaseCollectionManager databaseCollectionManager = new DatabaseCollectionManager(databaseManager, databaseUserManager);
+        CollectionManager collectionManager = new CollectionManager(databaseCollectionManager);
         CommandManager commandManager = new CommandManager(
                 new HelpCommand(),
                 new InfoCommand(collectionManager),
                 new ShowCommand(collectionManager),
-                new AddCommand(collectionManager),
-                new UpdateCommand(collectionManager),
+                new AddCommand(collectionManager, databaseCollectionManager),
+                new UpdateCommand(collectionManager, databaseCollectionManager),
                 new RemoveByIdCommand(collectionManager),
-                new ClearCommand(collectionManager),
+                new ClearCommand(collectionManager, databaseCollectionManager),
                 new ExecuteScriptCommand(),
                 new ExitCommand(),
-                new RemoveGreaterCommand(),
+                new RemoveGreaterCommand(collectionManager, databaseCollectionManager),
                 new ReorderCommand(collectionManager),
-                new RemoveAllByPriceCommand(collectionManager),
+                new RemoveAllByPriceCommand(collectionManager, databaseCollectionManager),
                 new FilterByPriceCommand(collectionManager),
-                new SaveCommand(collectionManager),
                 new SumOfDiscountCommand(collectionManager),
-                new SortCommand(collectionManager));
+                new SortCommand(collectionManager),
+                new SignUpCommand(databaseUserManager),
+                new SignInCommand(databaseUserManager),
+                new LogOutCommand(databaseUserManager));
         RequestManager requestHandler = new RequestManager(commandManager);
         Server server = new Server(PORT, requestHandler);
         server.run();

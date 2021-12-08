@@ -1,17 +1,23 @@
 import managers.RequestManager;
+import managers.RequestProcessingRunning;
 import utils.Request;
-import utils.Response;
-import utils.ResponseCode;
 
 import java.io.*;
 import java.net.*;
 import java.util.Scanner;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ForkJoinPool;
 
 public class Server {
     private int port;
     private RequestManager requestManager;
     private DatagramSocket socket;
     private InetAddress address;
+    private ExecutorService readRequest = Executors.newCachedThreadPool();
+    private ExecutorService executeRequest = Executors.newFixedThreadPool(10);
+    private Request request;
     private Scanner scanner;
 
     public Server(int port, RequestManager requestManager) {
@@ -20,50 +26,30 @@ public class Server {
     }
 
     public void run() {
-        System.out.println("Запуск сервера!");
-        boolean processStatus = true;
-        scanner = new Scanner(System.in);
-        Runnable userInput = () -> {
-            try {
-                while (true) {
-                    String[] userCommand = (scanner.nextLine().trim() + " ").split(" ", 2);
-                    userCommand[1] = userCommand[1].trim();
-                    if (!userCommand[0].equals("save")) {
-                        System.out.println("Сервер не может сам принимать такую команду!");
-                        return;
-                    }
-                    Response response = executeRequest(new Request(userCommand[0], userCommand[1]));
-                    System.out.println(response.getResponseBody());
-                }
-            } catch (Exception e) {
-                System.out.println("Бля");
-            }
-        };
-        Thread thread = new Thread(userInput);
-        thread.start();
-        while (processStatus) {
-            processStatus = processingClientRequest();
-        }
-    }
-
-    private boolean processingClientRequest(){
-        Request request = null;
-        Response response = null;
+        do_CTRL_C_Thread();
         try {
-            socket = new DatagramSocket(3274);
-            scanner = new Scanner(System.in);
-            do {
-                request = getRequest();
-                System.out.println("Получена команда '" + request.getCommandName() + "'");
-                response = executeRequest(request);
-                System.out.println("Команда '" + request.getCommandName() + "' выполнена");
-                sendResponse(response);
-            } while (response.getResponseCode() != ResponseCode.SERVER_EXIT);
-            return false;
-        } catch (IOException | ClassNotFoundException exception) {
-            System.out.println("Произошла ошибка при работе с клиентом!");
+            System.out.println("Сервер запущен.");
+            socket = new DatagramSocket(this.port);
+            while (true) {
+                try {
+                    if (!readRequest.submit(() -> {
+                        try {
+                            request = getRequest();
+                            System.out.println("Получена команда '" + request.getCommandName() + "'");
+                            return true;
+                        } catch (ClassNotFoundException | IOException e) {
+                            System.out.println("Произошла ошибка при чтении запроса!");
+                        }
+                        return false;
+                    }).get()) break;
+                    executeRequest.execute(new RequestProcessingRunning(requestManager, request,address,port,socket));
+                } catch (InterruptedException | ExecutionException e) {
+                    System.out.println("При чтении запроса произошла ошибка многопоточности!");
+                }
+            }
+        } catch (SocketException e) {
+            System.out.println("Произошла ошибка при работе с сокетом!");
         }
-        return true;
     }
 
     private Request getRequest() throws IOException, ClassNotFoundException {
@@ -75,16 +61,6 @@ public class Server {
         return deserialize(getPacket, getBuffer);
     }
 
-    private void sendResponse(Response response) throws IOException {
-        byte[] sendBuffer = serialize(response);
-        DatagramPacket sendPacket = new DatagramPacket(sendBuffer, sendBuffer.length, address, port);
-        socket.send(sendPacket);
-    }
-
-    private Response executeRequest(Request request) {
-        return requestManager.manage(request);
-    }
-
     private Request deserialize(DatagramPacket getPacket, byte[] buffer) throws IOException, ClassNotFoundException {
         ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(getPacket.getData());
         ObjectInputStream objectInputStream = new ObjectInputStream(byteArrayInputStream);
@@ -94,15 +70,10 @@ public class Server {
         return request;
     }
 
-    private byte[] serialize(Response response) throws IOException {
-        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-        ObjectOutputStream objectOutputStream = new ObjectOutputStream(byteArrayOutputStream);
-        objectOutputStream.writeObject(response);
-        byte[] buffer = byteArrayOutputStream.toByteArray();
-        objectOutputStream.flush();
-        byteArrayOutputStream.flush();
-        byteArrayOutputStream.close();
-        objectOutputStream.close();
-        return buffer;
+    private void do_CTRL_C_Thread() {
+        scanner = new Scanner(System.in);
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            System.out.println("Завершаю программу.");
+        }));
     }
 }

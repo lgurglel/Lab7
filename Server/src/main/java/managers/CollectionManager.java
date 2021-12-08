@@ -1,8 +1,12 @@
 package managers;
 
 import tasck.Ticket;
+import utils.User;
+
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Collectors;
 
 public class CollectionManager {
@@ -10,10 +14,14 @@ public class CollectionManager {
     private ArrayList<Ticket> tickets = new ArrayList<>();
     private FileManager fileManager;
     private LocalDateTime lastSaveTime;
+    private DatabaseCollectionManager databaseCollectionManager;
+    private ReadWriteLock collectionLocker = new ReentrantReadWriteLock();
 
-    public CollectionManager(FileManager fileManager) {
-        this.lastSaveTime = null;
-        this.fileManager = fileManager;
+
+    public CollectionManager(DatabaseCollectionManager databaseCollectionManager) {
+        this.databaseCollectionManager = databaseCollectionManager;
+
+        loadCollection();
     }
 
     public int collectionSize() {
@@ -41,12 +49,8 @@ public class CollectionManager {
         return tickets.getClass().getName();
     }
 
-    public void clearCollection() {
-        tickets.clear();
-    }
-
-    public void saveCollection() {
-        fileManager.writeCollection(tickets);
+    public void clearCollection(User user) {
+        tickets.removeIf(ticket -> ticket.getUser().equals(user));
     }
 
     public void removeGreater(Ticket ticketToCompare) {
@@ -59,6 +63,12 @@ public class CollectionManager {
 
     public void removeAllByPrice(Float price) {
         tickets.removeIf(ticket -> ticket.getPrice().equals(price));
+    }
+    public List<Ticket> getAllByPrice(Float price) {
+        return tickets.stream().filter(ticket -> ticket.getPrice().equals(price)).collect(Collectors.toList());
+    }
+    public List<Ticket> getGreater(Ticket ticketToCompare) {
+        return tickets.stream().filter(ticket -> ticket.compareTo(ticketToCompare) > 0).collect(Collectors.toList());
     }
 
     public void removeFromCollection(Ticket ticket) {
@@ -102,148 +112,10 @@ public class CollectionManager {
     public Ticket getByValue(Ticket ticketToFind) {
         return tickets.stream().filter(ticket -> ticket.equals(ticketToFind)).findFirst().orElse(null);
     }
-
-//    public boolean executeExecuteScriptCommand(FileManager fileManager, String parameter) {
-//        String message = "";
-//        try {
-//            message = fileManager.readFile(parameter);
-//        } catch (FileNotFoundException e) {
-//            message = "false";
-//        }
-//    }
-//
-//    @Override
-//    public boolean clearCommand() {
-//        tickets = new ArrayList<>();
-//        return new Response("Коллекция пуста!");
-//    }
-//
-//    public boolean infoCommand() {
-//        return new Response("Тип коллекции: " + tickets.getClass() +
-//                "\nДата инициадизации: " + initDate +
-//                "\nКолличество элементов коллекции: " + tickets.size());
-//    }
-
-//    public boolean removeByIdCommand(String parameter) {
-//        long id = 0;
-//        try {
-//            id = Long.parseLong(parameter);
-//        } catch (Exception e) {
-//            return new Response("id должен быть числом!");
-//        }
-//        Iterator iterator = tickets.iterator();
-//        while (iterator.hasNext()) {
-//            Ticket ticket = (Ticket) iterator.next();
-//            if (ticket.getId() == id) {
-//                iterator.remove();
-//                return new Response("Элемент успешно удалён");
-//            }
-//        }
-//        return new Response("Элемента с таким id не существует!");
-//
-//    }
-//
-//    public boolean saveCommand() {
-//        lastSaveTime = LocalDate.now();
-//        return new Response(fileManager.writeCollection(tickets));
-//    }
-
-//    public boolean showCommand() {
-//        String message = "";
-//
-//        for (Ticket ticket : tickets) {
-//            message += ticket.show();
-//        }
-//
-//        if (message.equals("")) {
-//            message = "Коллекция пустая!";
-//        }
-//        return new Response(message);
-//    }
-
-
-//    public boolean updateCommand(String parameter, Object objectArgument) {
-//        long id = 0;
-//        try {
-//            id = Long.parseLong(parameter);
-//        } catch (Exception e) {
-//            return new Response("id должен быть числом!");
-//        }
-//        try {
-//            removeByIdCommand(parameter);
-//            Ticket ticket = (Ticket) objectArgument;
-//            addCommand(new Ticket(createNewId(),
-//                    ticket.getName(),
-//                    ticket.getCoordinates(),
-//                    ticket.getCreationDate(),
-//                    ticket.getPrice(),
-//                    ticket.getDiscount(),
-//                    ticket.getComment(),
-//                    ticket.getType(),
-//                    ticket.getVenue()));
-//        } catch (Exception e) {
-//            return new Response("Проблема с обновлением объекта");
-//        }
-//        return new Response("Объект успешно обновлён, или добавлен новый!");
-//    }
-//
-//    public boolean sumOfDiscountCommand() {
-//        long sumOfDiscount = 0;
-//        for (Ticket ticket : tickets) {
-//            sumOfDiscount += ticket.getDiscount() != null ? ticket.getDiscount().longValue():0;
-//        }
-//        return new Response("Сумма скидок всех эллементов: " + sumOfDiscount);
-//    }
-//
-//    public boolean removeGreaterCommand(Ticket newTicket) {
-//        ArrayList<Ticket> arrayList = new ArrayList<>(tickets.stream().sorted().collect(Collectors.toList()));
-//        int num = 0;
-//        for (Ticket ticket : arrayList) {
-//            if (newTicket.compareTo(ticket) < 0) {
-//                removeByIdCommand(String.valueOf(ticket.getId()));
-//            }
-//        }
-//        return new Response("Если вы не увидите этой группы после команды 'show', то эта группа была слабым звеном!(");
-//    }
-
-//    public boolean addCommand(Ticket ticket) {
-//            addCommand(ticket);
-//        return new Response("Билет добавлен в коллекцию!");
-//    }
-
-//    public boolean removeAllByPriceCommand(String parameter) {
-//        try {
-//            Float price = Float.parseFloat(parameter);
-//            Iterator iterator = tickets.iterator();
-//            while (iterator.hasNext()) {
-//                Ticket ticket = (Ticket) iterator.next();
-//                if (ticket.getPrice().equals(price)) {
-//                    iterator.remove();
-//                    return new Response("Элементы удовлетворяющие усмловию удалены!");
-//                }
-//            }
-//        } catch (Exception e) {
-//            return new Response("Неверно введен параметр!");
-//        }
-//        return new Response("Не найдено цен равной заданной.");
-//    }
-
-//        public boolean reorder () {
-//            if (!tickets.isEmpty()) {
-//                tickets = tickets
-//                        .stream()
-//                        .sorted((x, y) -> x.compareTo(y) * -1)
-//                        .collect(Collectors.toCollection(ArrayList::new));
-//                return new Response("Коллекция отсортированна в обратном порядке!");
-//            } else return new Response("Коллекция пуста!");
-//        }
-//
-//        public boolean sort () {
-//            if (!tickets.isEmpty()) {
-//                tickets.sort(Ticket::compareTo);
-//                return new Response("Коллекция отсортированна!");
-//            } else return new Response("Коллекция пуста!");
-//
-//        }
+    public void loadCollection() {
+        tickets = databaseCollectionManager.getCollection();
+        lastSaveTime = LocalDateTime.now();
+        System.out.println("Коллекция загружена.");
+    }
 
 }

@@ -15,7 +15,10 @@ public class Venue implements Serializable {
         this.address = address;
     }
 
-    public Venue(String newVenueName, int newCapacity, Address newAddress) {
+    public Venue(String name, int capacity, Address address) {
+        this.name = name;
+        this.capacity = capacity;
+        this.address = address;
     }
 
     public int getId() {

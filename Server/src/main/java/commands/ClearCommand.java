@@ -1,35 +1,39 @@
 package commands;
 
 import consoleWork.Outputer;
-import exceptions.WrongAmountOfParametersException;
+import exceptions.*;
 import managers.CollectionManager;
+import managers.DatabaseCollectionManager;
 import managers.ResponseOutputer;
+import tasck.Ticket;
+import utils.User;
 
 
 public class ClearCommand extends AbstractCommand {
     private CollectionManager collectionManager;
-    public ClearCommand(CollectionManager collectionManager) {
-        super("clear","- удаляет содержимое коллекции");
+    private DatabaseCollectionManager databaseCollectionManager;
+
+    public ClearCommand(CollectionManager collectionManager, DatabaseCollectionManager databaseCollectionManager) {
+        super("clear", "очистить коллекцию");
         this.collectionManager = collectionManager;
-    }
-
-    public ClearCommand() {
-    }
-
-    @Override
-    public String toString() {
-        return "clear";
+        this.databaseCollectionManager = databaseCollectionManager;
     }
 
     @Override
-    public boolean execute(String parameter,Object objectArgument) {
+    public boolean execute(String stringArgument, Object objectArgument, User user) {
         try {
-            if(objectArgument != null) throw new WrongAmountOfParametersException();
-            collectionManager.clearCollection();
-            ResponseOutputer.append("Коллекция успешно очищена!\n");
+            if (user == null) throw new NonAuthorizedUserException();
+            if (!stringArgument.isEmpty() || objectArgument != null) throw new WrongAmountOfParametersException();
+            databaseCollectionManager.clearCollection(user);
+            collectionManager.clearCollection(user);
+            ResponseOutputer.append("Коллекция очищена!");
             return true;
         } catch (WrongAmountOfParametersException exception) {
-            ResponseOutputer.append("У этой команды нет параметров!\n");
+            ResponseOutputer.append("Использование: '" + getName() + " " + getDescription() + "'");
+        } catch (DatabaseManagerException exception) {
+            ResponseOutputer.appendError("Произошла ошибка при обращении к базе данных!");
+        }catch (NonAuthorizedUserException e) {
+            ResponseOutputer.append("Необходимо авторизоваться!\n");
         }
         return false;
     }

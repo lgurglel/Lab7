@@ -1,6 +1,9 @@
+import managers.AuthManager;
 import managers.UserHandler;
 import utils.Request;
 import utils.Response;
+import utils.ResponseCode;
+import utils.User;
 
 import java.io.*;
 import java.net.*;
@@ -18,32 +21,36 @@ public class Client {
     private SocketAddress address;
     private ByteBuffer byteBuffer = ByteBuffer.allocate(16384);
     private Selector selector;
+    private AuthManager authManager;
+    private User user;
 
-    public Client(String host, int port, UserHandler userHandler) {
+    public Client(String host, int port, UserHandler userHandler, AuthManager authManager) {
         this.host = host;
         this.port = port;
         this.userHandler = userHandler;
+        this.authManager = authManager;
     }
 
-    public void run(String fileName){
+    public void run(){
         try {
             datagramChannel = DatagramChannel.open();
-            address = new InetSocketAddress("localhost", this.port);
+            address = new InetSocketAddress(this.host, this.port);
             datagramChannel.connect(address);
             datagramChannel.configureBlocking(false);
             selector = Selector.open();
             datagramChannel.register(selector, SelectionKey.OP_WRITE);
-            send(new Request("help"));
-            Response responseLoading = receive();
-            System.out.print(responseLoading.getResponseBody());
             Request requestToServer = null;
             Response serverResponse = null;
             do {
-                requestToServer = serverResponse != null ? userHandler.interactiveMode(serverResponse.getResponseCode()) :
-                        userHandler.interactiveMode(null);
+                requestToServer = serverResponse != null ? userHandler.interactiveMode(serverResponse.getResponseCode(), user) :
+                        userHandler.interactiveMode(null, user);
                 if (requestToServer.isEmpty()) continue;
                 send(requestToServer);
                 serverResponse = receive();
+                if (serverResponse.getResponseCode().equals(ResponseCode.OK) && (requestToServer.getCommandName().equals("sign_in") || requestToServer.getCommandName().equals("sign_up")))
+                    user = requestToServer.getUser();
+                if (serverResponse.getResponseCode().equals(ResponseCode.OK) && requestToServer.getCommandName().equals("log_out"))
+                    user = null;
                 System.out.print(serverResponse.getResponseBody());
             } while(!requestToServer.getCommandName().equals("exit"));
         } catch (IOException | ClassNotFoundException exception) {
